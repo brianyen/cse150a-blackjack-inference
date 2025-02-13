@@ -1,14 +1,30 @@
-def bayesian_round(args, value, num_aces):
+def bayesian_agent(args, value, num_aces):
     # args: (player_choices, choice_list, (card1, card2))
+
+    # always hit when you have less than 10
+    if value <= 10:
+        return 1
+    
     player_choices = args[0]
     choice_list = args[1]
     card1, card2 = args[2]
     
     dealer_probabilities = calculate_dealer_probabilities(choice_list, player_choices)
-    print("dealer probabilities:", dealer_probabilities)
-    print("double check", sum([value for key, value in dealer_probabilities.items()]))
-    print("highest probability", max(dealer_probabilities, key=dealer_probabilities.get)
-)
+    prob_dict = {2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 16, 11: 4}
+    prob_dict = {key: value / 52 for key, value in prob_dict.items()}
+    choices = [0, 0]
+    for key, val in dealer_probabilities.items():
+        ret = calculate_move_dp(key, prob_dict, value)
+        for i in [0, 1]:
+            choices[i] += ret[i] * val
+
+    if choices[0] > choices[1]:
+        return 0
+    else:
+        return 1
+    # print("dealer probabilities:", dealer_probabilities)
+    # print("double check", sum([value for key, value in dealer_probabilities.items()]))
+    # print("highest probability", max(dealer_probabilities, key=dealer_probabilities.get))
 
     # will add decisions later
 
@@ -68,3 +84,45 @@ def calculate_dealer_probabilities(choice_list, player_choices):
     return_dict = {key: value / prob_observations for key, value in return_dict.items()}
 
     return return_dict
+
+def calculate_move_dp(dealer_card, prob_dict, value):
+    prob_dealer_ends_with = {dealer_card: 1.0}
+    for i in range(dealer_card + 1, 23):
+        prob_dealer_ends_with[i] = 0.0
+    
+    for cur in range(dealer_card, 17):
+        for key, val in prob_dict.items():
+            if key == 11:
+                if cur > 10:
+                    prob_dealer_ends_with[min(cur + 1, 22)] += prob_dealer_ends_with[cur] * val
+                else:
+                    prob_dealer_ends_with[min(cur + 11, 22)] += prob_dealer_ends_with[cur] * val
+            else:
+                prob_dealer_ends_with[min(cur + key, 22)] += prob_dealer_ends_with[cur] * val
+
+    dp = {i: [0, 0] for i in range(value, 22)}
+    dp[21][0] = 1 - prob_dealer_ends_with[21]
+    dp[21][1] = -1
+    for card in range(20, value-1, -1):
+        if card > 16:
+            # standing is as good as standing on the card above, except the dealer can now beat you/tie you more often
+            dp[card][0] = dp[card+1][0] - prob_dealer_ends_with[card] - prob_dealer_ends_with[card+1]
+        elif card == 16:
+            # the dealer will never stand on a 16
+            dp[card][0] = dp[card+1][0] - prob_dealer_ends_with[card+1]
+        else:
+            # you will do as well as the card above you since the dealer won't stand on a 16 or below
+            dp[card][0] = dp[card+1][0]
+        
+        for key, val in prob_dict.items():
+            if key == 11:
+                if card <= 10:
+                    dp[card][1] += max(dp[card+11][0], dp[card+11][1]) * val
+                else:
+                    dp[card][1] += max(dp[card+1][0], dp[card+1][1]) * val
+            elif card + key > 21:
+                dp[card][1] -= val
+            else:
+                dp[card][1] += max(dp[card+key][0], dp[card+key][1]) * val
+
+    return dp[value]
