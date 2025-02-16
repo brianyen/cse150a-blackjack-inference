@@ -1,3 +1,7 @@
+import bayesian_agent.bayesian as bayes
+mse = 0
+guess = -1
+
 def bayesian_agent(args, value, num_aces):
     # args: (player_choices, choice_list, (card1, card2))
 
@@ -11,43 +15,21 @@ def bayesian_agent(args, value, num_aces):
     
     dealer_probabilities = calculate_dealer_probabilities(choice_list, player_choices)
     prob_dict = {2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 16, 11: 4}
-    prob_dict = {key: value / 52 for key, value in prob_dict.items()}
+
+    num_cards_left = sum(prob_dict.values())
+    prob_dict = {key: value / num_cards_left for key, value in prob_dict.items()}
     choices = [0, 0]
     for key, val in dealer_probabilities.items():
         ret = calculate_move_dp(key, prob_dict, value)
         for i in [0, 1]:
             choices[i] += ret[i] * val
 
+    bayes.guess = max(dealer_probabilities, key=dealer_probabilities.get)
+
     if choices[0] > choices[1]:
         return 0
     else:
         return 1
-    # print("dealer probabilities:", dealer_probabilities)
-    # print("double check", sum([value for key, value in dealer_probabilities.items()]))
-    # print("highest probability", max(dealer_probabilities, key=dealer_probabilities.get))
-
-    # will add decisions later
-
-    """prob_hit = 0
-    prob_stand = 0
-
-    for c1, p_c1 in dealer_probabilities():
-        if c1 == 11:
-            # deal with aces
-            return
-
-        # calculate standing probabilty
-
-    # P(win | hit)
-    # = sum(card across drawable cards): P(win | card) P(card)
-    # = sum(card across drawable cards):  P(v<=21, v>dealer | card) P(card)
-    # = sum(card across drawable card)(dealer across drawable cards): P(v<=21, v>dealer| card, dealer) P(card) P(dealer | card)
-
-    # P(win | stand)
-    # = sum(card across drawable cards): P(win | card) P(card)
-    # = sum(card across drawable cards): (P(v<=21, v>card+dealer | card) + P(card+dealer > 21))P(card)
-    """
-    return 0 # never gamble
 
 def calculate_dealer_probabilities(choice_list, player_choices):
     # returns probability first dealer card is each card
