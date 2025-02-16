@@ -2,11 +2,36 @@ import bayesian_agent.bayesian as bayes
 mse = 0
 guess = -1
 
-def bayesian_agent(args, value, num_aces):
+def bayesian_agent1(args, value, num_aces):
     # args: (player_choices, choice_list, (card1, card2))
 
-    # always hit when you have less than 10
-    if value <= 10:
+    # always hit when you have less than 12
+    if value <= 11:
+        return 1
+    
+    player_choices = args[0]
+    choice_list = args[1]
+    card1, card2 = args[2]
+    
+    dealer_probabilities = calculate_dealer_probabilities(choice_list, player_choices)
+
+    prob_dict2 = {2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 16, 11: 4}
+    num_cards_left = sum(prob_dict2.values())
+    prob_dict2 = {key: value / num_cards_left for key, value in prob_dict2.items()}
+
+    bayes.guess = max(dealer_probabilities, key=dealer_probabilities.get)
+    choices = calculate_move_dp(bayes.guess, prob_dict2, value)
+
+    if choices[0] > choices[1]:
+        return 0
+    else:
+        return 1
+    
+def bayesian_agent2(args, value, num_aces):
+    # args: (player_choices, choice_list, (card1, card2))
+
+    # always hit when you have less than 12
+    if value <= 11:
         return 1
     
     player_choices = args[0]
@@ -41,6 +66,9 @@ def calculate_dealer_probabilities(choice_list, player_choices):
 
     prob_dict = {2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 16, 11: 4}
     prob_dict = {key: value / 52 for key, value in prob_dict.items()}
+    if len(choice_list) == 0:
+        return prob_dict
+
     return_dict = {}
 
     prob_observations = 0
