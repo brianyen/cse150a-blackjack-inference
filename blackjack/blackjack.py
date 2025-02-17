@@ -92,7 +92,7 @@ def play_blackjack(agent, player_choices, num_other_players):
     static_deck.append(random_card())
 
   # uncomment to test with regular deck
-  static_deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
+  # static_deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
 
   num_wins = 0
   num_ties = 0
