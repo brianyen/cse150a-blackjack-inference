@@ -1,3 +1,41 @@
+## UPDATES FOR REGRADE REQUEST
+
+### PEAS/Agent Analysis
+
+`Performance Measure`: We measure the performance of our bot by the average amount of money won/lost per dollar it puts into the game. For example, in the table under the conclusion section, you can see that "Agent 2" has an expected return of -0.0484 when playing with 10 other players. This means for every $1 it puts in, it is expected to lose 4.84 cents. For reference, a player using perfect strategy (without splitting or doubling down) has an expected loss of about 2% when they can see all cards and are playing with a standard deck, so we'd like our bot to get as close to that as possible.
+
+We also measure the MSE (mean square error) of our bot's best guess of what the dealer's shown card is versus what it actually is to get a sense of how it's doing relative to how many players there are, but that's not what the bot is ultimately trying to optimize for.
+
+`Environment`: The environment includes: the dealer's two cards (both of which are hidden from our agent), the cards of all other players, the decisions of the other players depending on what they see from the dealer, and the deck. Importantly, the deck is random—every card has a value randomly taken from the 13 possible cards in a standard deck, so playing a standard strategy might not be optimal.
+
+`Actuators`: The agent only has the ability to choose whether to hit or stand (at least in the current iteration). In future iterations, it might also gain the ability to split, double down, etc.
+
+`Sensors`: The agent ONLY senses the decisions the other players make alongside what cards they have. That means it has no clue what card the dealer has, which is typically an essential part of a blackjack player's strategy. The agent also doesn't have a sensor to see what cards are in the random deck.
+
+### Agent Setup
+
+The deck is indeed randomized. What we do is we pick a random card from a standard deck of cards 52 times with replacement and then call that our new deck. This means that we can expect the card frequencies in the deck to be roughly distributed like that of a standard deck, but there might be some cards that have unusually high frequencies.
+
+Although our agent doesn't account for this in its current model, it will for Milestone 3 (we thought this would be a good application for a Hidden Markov Model). In the future, we can use these cards that appear more often to potentially gain the upper hand against the dealer.
+
+In addition to the deck being randomized, the agent also doesn't get to see what cards the dealer has (typically players would get to see one of the dealer's cards). As a human, this would probably mean your best strategy is to play simply based on your own chances of busting when drawing new cards. However, the agent can use the decisions of the other players to gain a vague understanding of what the dealer's shown card is.
+
+### Training
+
+We based our training on a data set of 900,000 hands of blackjack. We used likelihood maximization to determine the CPTs for our Bayesian Network.
+
+During training, we had full visibility of what the dealer's shown card was when players made decisions whether to hit or stand, so we could simply determine the counts of each kind of decision to fill out the probability table.
+
+In particular, we went through `blkjckhands.csv` (which we got from Kaggle) and simulated each game to create a tally of each player's decisions in a given position. Then we summarized that cleaned data in `blkjck_clean.csv`, which we can load quickly into our CPTs by simply dividing the number of hits by the total number of hits and stands for each state.
+
+A simplifying assumption we made was that a player's decision would be approximately the same whenever they had 2 or more aces (that is, we compacted any state with 3 or more aces into the one with only 2 aces). This was to prevent our agent from overfitting to our data; otherwise, we might have a freak event where a player has 5 aces and a total value of 14 and our agent can determine exactly what card the dealer has with 100% certainty.
+
+Another simplifying assumption we made was that in any state that the data set had never reached, a player would simply randomly choose between hitting and standing with 50-50 odds. These states are so rare that they aren't that impactful, but this was better than simply resetting the round.
+
+A final simplifying assumption we made is that the players in our game will continue to play like the players from our data with equal probability as what we saw in the data set. That is, our bot players will follow the CPTs exactly. This might give a slight unfair advantage to our agent since it guarantees our CPTs are accurate, but the other option would have been to only play rounds that actually happened in the data set, which we thought would've been a worse solution.
+
+## PREVIOUS SUBMISSION
+
 ### Agent PEAS 
 
 Our agent’s performance measure is the average amount of money won (or lost) in a game. Its environment consists of the randomized deck of cards, the other players at the table (bots in this case), and the dealer. Specifically, the other players at the table also play a round of blackjack prior to our agent’s turn. Each other player has cards that they start with and can hit to gain more cards according to a stochastic algorithm. 
