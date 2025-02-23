@@ -28,7 +28,7 @@ During training, we had full visibility of what the dealer's shown card was when
 
 In particular, we went through `blkjckhands.csv` (which we got from Kaggle) and simulated each game to create a tally of each player's decisions in a given position. Then we summarized that cleaned data in `blkjck_clean.csv`, which we can load quickly into our CPTs by simply dividing the number of hits by the total number of hits and stands for each state.
 
-A simplifying assumption we made was that a player's decision would be approximately the same whenever they had 2 or more aces (that is, we compacted any state with 3 or more aces into the one with only 2 aces). This was to prevent our agent from overfitting to our data; otherwise, we might have a freak event where a player has 5 aces and a total value of 14 and our agent can determine exactly what card the dealer has with 100% certainty.
+A simplifying assumption we made was that a player's decision would be approximately the same whenever they had 2 or more aces (that is, we compacted any state with 3 or more aces into the one with only 2 aces). This was to prevent our agent from overfitting to our data; otherwise, we might have a freak event where a player has 5 aces and a total value of 14 and our agent can believes it can determine exactly what card the dealer has with 100% certainty due to such a small sample for that event.
 
 Another simplifying assumption we made was that in any state that the data set had never reached, a player would simply randomly choose between hitting and standing with 50-50 odds. These states are so rare that they aren't that impactful, but this was better than simply resetting the round.
 
