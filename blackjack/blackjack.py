@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import bayesian_agent.bayesian as bayes
+import bayesian_agent.markovian as markov
 import importlib
 import math
 
@@ -117,8 +118,11 @@ def play_blackjack(agent, player_choices, num_other_players):
 
     pcard1 = deck.pop(0)
     pcard2 = deck.pop(0)
+
+    markov.has_updated = False
     agent_cards, p_value = play_round(pcard1, pcard2, agent, deck, (player_choices, choice_list, (pcard1, pcard2)))
     bayes.mse += (dealer_card - bayes.guess) ** 2
+    markov.mse += (dealer_card - markov.guess) ** 2
 
     card2 = deck.pop()
     dealer_cards, d_value = play_round(dealer_card, card2, dealer_choice, deck, None)
@@ -148,6 +152,91 @@ def play_blackjack(agent, player_choices, num_other_players):
 
   # print(num_wins, num_ties, num_losses)
   return num_wins, num_ties, num_losses, num_bot_wins, num_bot_ties, num_bot_losses
+
+def squared_error(belief, actual):
+    return sum([(belief[i] - actual[i]) ** 2 for i in range(2, 12)])
+
+def play_blackjack_time_series(agent, player_choices, num_other_players, bucket_size = 1):
+  static_deck = []
+  for i in range(0, 52):
+    static_deck.append(random_card())
+  
+  true_freqs = {item: 0 for item in range(2, 12)}
+  for item in static_deck:
+      true_freqs[item] += 1
+  true_freqs = {item: value / sum(true_freqs.values()) for item, value in true_freqs.items()}
+
+  # uncomment to test with regular deck
+  # static_deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
+
+  # uncomment to test with extremely stacked deck
+  static_deck = [5, 6, 7, 8, 10, 10, 10, 10, 10, 10, 10, 10, 10] * 4
+
+  bot_record = []
+  agent_record = []
+  belief_diff = []
+  mse_record = []
+  for i in range(0, 100):
+    deck = static_deck.copy()
+    random.shuffle(deck)
+    dealer_card = deck.pop(0)
+    # print("dealer card:", dealer_card)
+    choice_list = []
+    # choice_list[i] = (value, aces, outcome, cardlist), outcome maps with {0: stand, 1: hit, 2: bust}
+    end_of_round_values = []
+    for _ in range(0, num_other_players):
+      card1 = deck.pop(0)
+      card2 = deck.pop(0)
+      choices, value = play_round(card1, card2, bot_choice, deck, (player_choices, dealer_card))
+      choice_list.extend(choices)
+      end_of_round_values.append(value)
+
+    pcard1 = deck.pop(0)
+    pcard2 = deck.pop(0)
+    
+    markov.has_updated = False
+    markov.true_card = dealer_card
+    agent_cards, p_value = play_round(pcard1, pcard2, agent, deck, (player_choices, choice_list, (pcard1, pcard2)))
+    bayes.mse += (dealer_card - bayes.guess) ** 2
+    markov.mse += (dealer_card - markov.guess) ** 2
+    belief_diff.append(squared_error({key: value / sum(markov.belief.values()) for key, value in markov.belief.items()}, true_freqs))
+    
+    if i % bucket_size == 0:
+        mse_record.append((dealer_card - markov.guess) ** 2)
+    else:
+        mse_record[int(i / bucket_size)] += (dealer_card - markov.guess) ** 2
+
+    card2 = deck.pop()
+    dealer_cards, d_value = play_round(dealer_card, card2, dealer_choice, deck, None)
+
+    bot_record.append(0)
+    for player in end_of_round_values:
+      if player > 21:
+        bot_record[i] += -1
+      elif d_value > 21:
+        bot_record[i] += 1
+      elif player > d_value:
+        bot_record[i] += 1
+      elif player == d_value:
+        bot_record[i] += 0
+      else:
+        bot_record[i] += -1
+
+    if i % bucket_size == 0:
+      agent_record.append(0)
+
+    if p_value > 21:
+      agent_record[int(i / bucket_size)] += -1
+    elif d_value > 21:
+      agent_record[int(i / bucket_size)] += 1
+    elif p_value > d_value:
+      agent_record[int(i / bucket_size)] += 1
+    elif p_value == d_value:
+      agent_record[int(i / bucket_size)] += 0
+    else:
+      agent_record[int(i / bucket_size)] += -1
+
+  return bot_record, agent_record, belief_diff, mse_record
 
 def random_play(arg1, arg2, arg3):
   return random.randint(0, 1)
