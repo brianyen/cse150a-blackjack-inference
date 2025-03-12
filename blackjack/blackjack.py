@@ -46,6 +46,8 @@ def bot_choice(args, value, num_aces):
 def dealer_choice(args, value, num_aces):
   if value < 17:
     return 1
+  # elif value == 17 and num_aces > 0:
+  #   return 1
   else:
     return 0
 
@@ -64,8 +66,8 @@ def play_round(card1, card2, choice_algorithm, deck, other_args):
     aces_used += 1
 
   while True:
-    choice = choice_algorithm(other_args, value, min(num_aces, 2))
-    choice_list.append((value, min(num_aces, 2), choice, card_list.copy()))
+    choice = choice_algorithm(other_args, value, min(num_aces - aces_used, 2))
+    choice_list.append((value, min(num_aces - aces_used, 2), choice, card_list.copy()))
     if choice == 0:
       # stand
       break
@@ -82,7 +84,7 @@ def play_round(card1, card2, choice_algorithm, deck, other_args):
 
     if value > 21:
       # bust
-      choice_list.append((value, min(num_aces, 2), 2, card_list))
+      choice_list.append((value, min(num_aces - aces_used, 2), 2, card_list))
       break
 
   return choice_list, value
@@ -170,7 +172,10 @@ def play_blackjack_time_series(agent, player_choices, num_other_players, bucket_
   # static_deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
 
   # uncomment to test with extremely stacked deck
-  static_deck = [5, 6, 7, 8, 10, 10, 10, 10, 10, 10, 10, 10, 10] * 4
+  # static_deck = [5, 6, 7, 8, 10, 10, 10, 10, 10, 10, 10, 10, 10] * 4
+
+  # card counting deck
+  static_deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 11] * 4
 
   bot_record = []
   agent_record = []

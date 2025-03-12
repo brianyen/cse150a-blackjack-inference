@@ -124,7 +124,10 @@ def markovian_agent3(args, value, num_aces):
     prob_dict = {key: value / sum(expected_cards.values()) for key, value in expected_cards.items()}
     dealer_probabilities = calculate_dealer_probabilities(choice_list, player_choices, prob_dict)
 
-    ret = calculate_move_dp2(dealer_probabilities, prob_dict, value)
+    # if (markov.true_card != -1):
+    #     dealer_probabilities = {markov.true_card: 1.0}
+
+    ret = calculate_move_dp2(dealer_probabilities, prob_dict, value, num_aces)
     markov.guess = max(dealer_probabilities, key=dealer_probabilities.get)
 
     if ret[0] > ret[1]:
@@ -211,7 +214,7 @@ def calculate_move_dp(dealer_card, prob_dict, value):
 
     return dp[value]
 
-def calculate_move_dp2(dealer_probs, prob_dict, value):
+def calculate_move_dp2(dealer_probs, prob_dict, value, num_aces):
     prob_dealer_ends_with = {}
     for i in range(0, 23):
         for j in [0, 1, 2]:
@@ -224,6 +227,9 @@ def calculate_move_dp2(dealer_probs, prob_dict, value):
     for num_aces in [0, 1, 2]:
         nx_aces = min(num_aces+1, 2)
         for aces_used in [0, 1, 2]:
+            if aces_used > num_aces:
+                continue
+
             nx_used = min(aces_used+1, 2)
             for cur in range(0, 17):
                 for key, val in prob_dict.items():
@@ -231,9 +237,12 @@ def calculate_move_dp2(dealer_probs, prob_dict, value):
                         if cur > 10:
                             prob_dealer_ends_with[(cur+1, nx_aces, nx_used)] += prob_dealer_ends_with[(cur, num_aces, aces_used)] * val
                         else:
-                            prob_dealer_ends_with[(cur+1, nx_aces, aces_used)] += prob_dealer_ends_with[(cur, num_aces, aces_used)] * val
-                    elif cur + key > 21 and num_aces > aces_used:
-                        prob_dealer_ends_with[(cur+key-10, num_aces, aces_used+1)] += prob_dealer_ends_with[(cur, num_aces, aces_used)] * val
+                            prob_dealer_ends_with[(cur+11, nx_aces, aces_used)] += prob_dealer_ends_with[(cur, num_aces, aces_used)] * val
+                    elif cur + key > 21:
+                        if num_aces > aces_used:
+                            prob_dealer_ends_with[(cur+key-10, num_aces, nx_used)] += prob_dealer_ends_with[(cur, num_aces, aces_used)] * val
+                        else:
+                            prob_dealer_ends_with[(22, num_aces, aces_used)] += prob_dealer_ends_with[(cur, num_aces, aces_used)] * val
                     elif cur + key <= 21:
                         prob_dealer_ends_with[(cur+key, num_aces, aces_used)] += prob_dealer_ends_with[(cur, num_aces, aces_used)] * val
 
@@ -254,8 +263,11 @@ def calculate_move_dp2(dealer_probs, prob_dict, value):
     for num_aces in [2, 1, 0]:
         nx_aces = min(num_aces+1, 2)
         for aces_used in [2, 1, 0]:
+            if aces_used > num_aces:
+                continue
+
             nx_used = min(aces_used+1, 2)
-            for card in range(20, value-1, -1):
+            for card in range(20, 1, -1):
                 if card > 16:
                     # standing is as good as standing on the card above, except the dealer can now beat you/tie you more often
                     dp[(card, num_aces, aces_used)][0] = dp[(card+1, num_aces, aces_used)][0] - prob_dealer_ends_with[card] - prob_dealer_ends_with[card+1]
@@ -284,7 +296,10 @@ def calculate_move_dp2(dealer_probs, prob_dict, value):
                         nx = dp[(card+key, num_aces, aces_used)]
                         dp[(card, num_aces, aces_used)][1] += max(nx[0], nx[1]) * val
 
-    return dp[(value, value==11, 0)]
+    # print(prob_dict)
+    # print(prob_dealer_ends_with)
+    # print(dp)
+    return dp[(value, num_aces, 0)]
 
 def parse_player_choices(choice_list):
     for p in choice_list:
