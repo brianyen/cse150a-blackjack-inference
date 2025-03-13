@@ -1,3 +1,5 @@
+## UPDATES FOR REGRADE REQUEST
+
 ### PEAS/Agent Analysis
 
 `Performance Measure`: We measure the performance of our bot by the average amount of money won/lost per dollar it puts into the game. For example, in the table under the conclusion section, you can see that "Agent 2" has an expected return of -0.0484 when playing with 10 other players. This means for every $1 it puts in, it is expected to lose 4.84 cents. For reference, a player using perfect strategy (without splitting or doubling down) has an expected loss of about 2% when they can see all cards and are playing with a standard deck, so we'd like our bot to get as close to that as possible.
@@ -10,67 +12,13 @@ We also measure the MSE (mean square error) of our bot's best guess of what the 
 
 `Sensors`: The agent ONLY senses the decisions the other players make alongside what cards they have. That means it has no clue what card the dealer has, which is typically an essential part of a blackjack player's strategy. The agent also doesn't have a sensor to see what cards are in the random deck.
 
-### Dataset Explanation
-
-We process our data [in this notebook](CSE_150A_Project_Clean_Data.ipynb).
-
-In our [raw dataset](blkjckhands.csv), each row describes one player's round of blackjack. The important variables (columns) in order dataset for each row are: `card1` through `card5`, as well as `dealcard1`. Within the data, `dealcard` is the dealer's first card, which is visible to all other players but not our agent. Then, `card1` through `card5` are the values of the cards that each player from the dataset received in order. If the player never received a third, fourth, or fifth card, the respective values are 0. 
-
-We use `card1` through `card5` for several purposes: for one, it lets us understand the state of the game both in terms of the number of aces at play and the value of the player's hand. The other usage is that reading `card3` through `card5` tells us whether the players chose to hit or not at each state. Then, the role of `dealcard1` is that it also helps to define the state of the game.
-
-Briefly speaking, we count the number of times hit or stand based on different states of the game. The relationship between these variables and the data we process from them is visualized below:
-
-![Relation of Variables to Data](img_m3/variable_relations_img.png)
-
-For a more detailed description, we initialize a multi-layered dictionary first indexed by the dealer's possible visible cards. Then, the next layer is indexed by the player's possible hand value up to 22. Then, the next layer is indexed by the number of aces we saw from the player, up to 5. In total, these each represent a possbile state for the player. Finally, the last layer has an integer for number of hits and an integer for the number of stands for each state.
-
-For each row, we figure out how many aces the player received by checking `card1` through `card5` for ones and elevens. We then sum up the player's total hand value, treating as many aces as 11 as we can without going over 21 total value. We then iterate through the player's `card3` through `card5`, tracking the state which consists of the player's hand and `dealcard1` before receiving each card. If the player receives a card (or in other words, if the card we are checking is nonzero), we increment the number of hits we saw in the state in our dictionary by 1. If the player does not receive a card, we increment the number of stands we saw by 1 and move on to the next row.
-
-Then, our dictionary is written row-by-row in `dealer_seen,player_value,num_aces,num_hits,num_stands` CSV format in [blkjck_clean.csv](blkjck_clean.csv).
-
-Using this resulting dictionary data written in [blkjck_clean.csv](blkjck_clean.csv), we can calculate the probabilities the players will hit or stand given their current situation (variables in red). Then, our agent can view the history of players hitting or standing during a round to in comparison to these probabilities to help calculate the probability of the dealer's card being each value to make a more informed decision.
-
 ### Agent Setup
 
-#### Previous Agent
+The deck is indeed randomized. What we do is we pick a random card from a standard deck of cards 52 times with replacement and then call that our new deck. This means that we can expect the card frequencies in the deck to be roughly distributed like that of a standard deck, but there might be some cards that have unusually high frequencies.
 
-As a refresher, here is an image of how our bayesian agent was setup in Milestone 2 as we will refer back to it for comparison.
+Although our agent doesn't account for this in its current model, it will for Milestone 3 (we thought this would be a good application for a Hidden Markov Model). In the future, we can use these cards that appear more often to potentially gain the upper hand against the dealer.
 
-![Bayesian Network with Dealer and Bots](img/bayes_net_evidence.png)
-
-#### New Agent
-
-For our new agent, we chose a modified EM algorithm to model our agent. Initially, we considered the following model:
-
-![Unsimplified Initial Model](img_m3/em_model_raw.png)
-
-We considered this model at first because we were worried that relying only on the exact data that we have encountered may result in overfitting, especially during the early rounds which could cause extra losses.
-
-For example, if we have only seen a ten, seven, and four thus far in the first round, relying solely on the exact data would cause the agent to believe that the deck solely consists of those three cards, which is extremely unlikely.
-
- So, we added an extra layer to the bottom of our network where upon drawing a certain card, say a two, we could potentially perceive it as any other card. In order to ensure that the data was still accurate, we had a high chance (91%) to perceive it as a two and a low chance to perceive it as the others (1% per other card).
-
-However, we found this model to be worse than the alternative method we ended up choosing, which we have visualized in the following graph:
-
-![Graph Comparing Different Models](img_m3/em_vs_count.png)
-
-The y-axis represents the mean-squared error between our believed probabilities and the true frequencies for the deck. The x-axis represents how many cards we have seen. 
-
-The simplest count line represents the method of just averaging the number of counts of a certain card over the total cards seen. On the graph, for early counts, the error is so high that including it would make the rest of the graph unreadable.
-
-The simple EM line represents the error of the method described above. 
-
-The better EM line represents the error of a similar method, with a small modification of reducing the odds of an "incorrect perception" as we see more cards.
-
-Finally, the better count line represents the method we ended up choosing, which initializes a set of dummy data to ensure that we do not initially overfit to what we've seen. As can be seen on the graph, this method has the lowest mean-squared error. 
-
-As for choosing how we initialized our dummy data, we went through a couple possiblities on 
-
-
-
-
-
-
+In addition to the deck being randomized, the agent also doesn't get to see what cards the dealer has (typically players would get to see one of the dealer's cards). As a human, this would probably mean your best strategy is to play simply based on your own chances of busting when drawing new cards. However, the agent can use the decisions of the other players to gain a vague understanding of what the dealer's shown card is.
 
 ### Training
 
@@ -86,24 +34,13 @@ Another simplifying assumption we made was that in any state that the data set h
 
 A final simplifying assumption we made is that the players in our game will continue to play like the players from our data with equal probability as what we saw in the data set. That is, our bot players will follow the CPTs exactly. This might give a slight unfair advantage to our agent since it guarantees our CPTs are accurate, but the other option would have been to only play rounds that actually happened in the data set, which we thought would've been a worse solution.
 
-
-
-
-
-
 ## PREVIOUS SUBMISSION
 
 ### Agent PEAS 
 
-`Performance Measure`: We measure the performance of our bot by the average amount of money won/lost per dollar it puts into the game. For example, in the table under the conclusion section, you can see that "Agent 2" has an expected return of -0.0484 when playing with 10 other players. This means for every $1 it puts in, it is expected to lose 4.84 cents. For reference, a player using perfect strategy (without splitting or doubling down) has an expected loss of about 2% when they can see all cards and are playing with a standard deck, so we'd like our bot to get as close to that as possible.
+Our agent’s performance measure is the average amount of money won (or lost) in a game. Its environment consists of the randomized deck of cards, the other players at the table (bots in this case), and the dealer. Specifically, the other players at the table also play a round of blackjack prior to our agent’s turn. Each other player has cards that they start with and can hit to gain more cards according to a stochastic algorithm. 
 
-We also measure the MSE (mean square error) of our bot's best guess of what the dealer's shown card is versus what it actually is to get a sense of how it's doing relative to how many players there are, but that's not what the bot is ultimately trying to optimize for.
-
-`Environment`: The environment includes: the dealer's two cards (both of which are hidden from our agent), the cards of all other players, the decisions of the other players depending on what they see from the dealer, and the deck. Importantly, the deck is random—every card has a value randomly taken from the 13 possible cards in a standard deck, so playing a standard strategy might not be optimal.
-
-`Actuators`: The agent only has the ability to choose whether to hit or stand (at least in the current iteration). In future iterations, it might also gain the ability to split, double down, etc.
-
-`Sensors`: The agent ONLY senses the decisions the other players make alongside what cards they have. That means it has no clue what card the dealer has, which is typically an essential part of a blackjack player's strategy. The agent also doesn't have a sensor to see what cards are in the random deck.of the dealer, despite the other players being able to. 
+The dealer also starts with two cards, and also can eventually hit to gain more cards while following a strict algorithm. Regarding actuators, our agent can choose whether it wants to stand, or to hit to gain another card. Our agent’s sensors allow it to see the cards and actions of the other players at the table, along with its own cards, and uses that information to make its decision. It can not see any card of the dealer, despite the other players being able to. 
 
 ### Data Processing
 
