@@ -64,21 +64,51 @@ The better EM line represents the error of a similar method, with a small modifi
 
 Finally, the better count line represents the method we ended up choosing, which initializes a set of dummy data to ensure that we do not initially overfit to what we've seen. As can be seen on the graph, this method has the lowest mean-squared error. 
 
-As for choosing how we initialized our dummy data, we went through a couple possiblities on 
+As for choosing how we initialized our dummy data, we went through a couple possiblities on how much dummy data we want to incorporate. Testing these possibilities, we found the following data:
 
+![Graph Comparison Initial Data](img_m3/exp_diff_init.png)
 
+Once again, the y-axis is the mean-squared error from the true frequencies, and x-axis is how many cards we have seen.
 
-
-
-
+As seen in the graph, the best ways we found to initialize our dummy variable was either with 3/4 of a standard deck or with a full standard deck. Ultimately, we chose to go with 3/4 of a standard deck because we wanted to account for outliers, and the difference in how long it takes to converge between these two methods is very small.
 
 ### Training
+
+*For this model, our training method was essentially the same way of calculating the CPT's as from the previous milestone. However, we also have an additional component where we update our belief of the deck as the rounds go on during testing, which will be detailed in the next section.*
+
+#### CPT Calculations from Previous Model
 
 We based our training on a data set of 900,000 hands of blackjack. We used likelihood maximization to determine the CPTs for our Bayesian Network.
 
 During training, we had full visibility of what the dealer's shown card was when players made decisions whether to hit or stand, so we could simply determine the counts of each kind of decision to fill out the probability table.
 
-In particular, we went through `blkjckhands.csv` (which we got from Kaggle) and simulated each game to create a tally of each player's decisions in a given position. Then we summarized that cleaned data in `blkjck_clean.csv`, which we can load quickly into our CPTs by simply dividing the number of hits by the total number of hits and stands for each state.
+In particular, we went through `blkjckhands.csv` (which we got from Kaggle) and simulated each game to create a tally of each player's decisions in a given position. Then we summarized that cleaned data in `blkjck_clean.csv`, which we can load quickly into our CPTs by simply dividing the number of hits by the total number of hits and stands for each state (to see the specific implementation of how we processed this data, see [this notebook](CSE_150A_Project_Clean_Data.ipynb)).
+
+When we start our agent, in order to calculate our CPT's, we run this function:
+
+```python
+def read_data(filename):
+    data = np.ndarray([12, 22, 3])
+
+    with open(filename, 'r') as f:
+    i = 0
+    for row in f:
+        i += 1
+        if i == 1:
+            continue
+
+        items = row.split(",")
+        hits = int(items[3])
+        stands = int(items[4])
+
+        if hits == 0 and stands == 0:
+            # never seen in actual gameplay
+            data[int(items[0])][int(items[1])][int(items[2])] = 0.5
+        else:
+            data[int(items[0])][int(items[1])][int(items[2])] = hits / (hits + stands)
+
+    return data
+```
 
 A simplifying assumption we made was that a player's decision would be approximately the same whenever they had 2 or more aces (that is, we compacted any state with 3 or more aces into the one with only 2 aces). This was to prevent our agent from overfitting to our data; otherwise, we might have a freak event where a player has 5 aces and a total value of 14 and our agent can determine exactly what card the dealer has with 100% certainty.
 
@@ -86,72 +116,90 @@ Another simplifying assumption we made was that in any state that the data set h
 
 A final simplifying assumption we made is that the players in our game will continue to play like the players from our data with equal probability as what we saw in the data set. That is, our bot players will follow the CPTs exactly. This might give a slight unfair advantage to our agent since it guarantees our CPTs are accurate, but the other option would have been to only play rounds that actually happened in the data set, which we thought would've been a worse solution.
 
+#### New Training for Believed Deck
 
+In order to calculate our believed distribution for the deck, we have the following code that runs every time the agent takes a turn: If our believed deck has not been initialized with the dummy data, we initialize it. Then, if it is the agent's first turn of the round, we parse all the choices thus far in the round with the `parse_player_choices` function:
 
+```python
+def parse_player_choices(choice_list):
+    for p in choice_list:
+        # not a hit, so we can add the cards to the pile
+        if p[2] != 1:
+            for card in p[3]:
+                markov.belief[card] += 1
+```
 
+We use this function to process all the choices made thus far in the current round: While iterating through each choice, we filter to only choices that are not hits so we can avoid duplicate hands. Then, for each remaining choice, we go through the hand of the player and increment the counts of the cards in that hand accordingly. Therefore, as the rounds pass, we will build an idea in `markov.belief` of what cards have been in play, which tells us about the distribution of the deck.
 
+After we are done parsing player choices, we build a new 52-card deck using the distribution found from the total counts, which is what we expect the deck to currently be. From our expected deck, we remove all the cards we have seen thus far in the current round, which gives us our expectation of the counts of cards are left in the deck. Using these counts, we can calculate a new distribution of the deck in the current state of the game.
 
-## PREVIOUS SUBMISSION
+```python
+if markov.belief is None:
+    markov.belief = {2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3, 9: 3, 10: 12, 11: 3}
 
-### Agent PEAS 
+player_choices = args[0]
+choice_list = args[1]
+card1, card2 = args[2]
 
-`Performance Measure`: We measure the performance of our bot by the average amount of money won/lost per dollar it puts into the game. For example, in the table under the conclusion section, you can see that "Agent 2" has an expected return of -0.0484 when playing with 10 other players. This means for every $1 it puts in, it is expected to lose 4.84 cents. For reference, a player using perfect strategy (without splitting or doubling down) has an expected loss of about 2% when they can see all cards and are playing with a standard deck, so we'd like our bot to get as close to that as possible.
+if not markov.has_updated:
+    parse_player_choices(choice_list)
+    markov.belief[card1] += 1
+    markov.belief[card2] += 1
+    markov.has_updated = True
 
-We also measure the MSE (mean square error) of our bot's best guess of what the dealer's shown card is versus what it actually is to get a sense of how it's doing relative to how many players there are, but that's not what the bot is ultimately trying to optimize for.
+expected_cards = {key: value * 52 / sum(markov.belief.values()) for key, value in markov.belief.items()}
+expected_cards[card1] = max(expected_cards[card1]-1, 0)
+expected_cards[card2] = max(expected_cards[card2]-1, 0)
+for p in choice_list:
+    # not a hit
+    if p[2] != 1:
+        for card in p[3]:
+            expected_cards[card] = max(expected_cards[card]-1, 0)
 
-`Environment`: The environment includes: the dealer's two cards (both of which are hidden from our agent), the cards of all other players, the decisions of the other players depending on what they see from the dealer, and the deck. Importantly, the deck is random—every card has a value randomly taken from the 13 possible cards in a standard deck, so playing a standard strategy might not be optimal.
+prob_dict = {key: value / sum(expected_cards.values()) for key, value in expected_cards.items()}
+```
 
-`Actuators`: The agent only has the ability to choose whether to hit or stand (at least in the current iteration). In future iterations, it might also gain the ability to split, double down, etc.
+We now can use this distribution to help us predict what the dealer's visible card is along with our CPT's.
 
-`Sensors`: The agent ONLY senses the decisions the other players make alongside what cards they have. That means it has no clue what card the dealer has, which is typically an essential part of a blackjack player's strategy. The agent also doesn't have a sensor to see what cards are in the random deck.of the dealer, despite the other players being able to. 
+### Results and Conclusion
 
-### Data Processing
+For our testing, we kept track of the expected return from a game of blackjack on a wager of one dollar, as well as the mean-squared error of our predicted visible dealer card and the actual visible dealer card. We tested three agents: Markov agent 1, 2, and 3.
 
-We process our data [in this notebook](CSE_150A_Project_Clean_Data.ipynb).
+Markov agent 1 was our first rendition, where we only kept track of the believed total deck. Markov agent 2 was our second version, where we subtracted the cards we have seen thus far during a given round from our believed total deck. Finally, Markov agent 3 has a changed DP algorithm for calculating the expected returns of standing versus hitting compared to Markov agent 2. We also tested our three versions with different number of bot players, and kept track of the return of the bot players as well. Our data can be shown in the following table:
 
-In our [raw dataset](blkjckhands.csv), each row describes one player's round of blackjack. We initialize a multi-layered dictionary first indexed by the dealer's possible visible cards. Then, the next layer is indexed by the player's possible hand value up to 22. Then, the next layer is indexed by the number of aces we saw from the player, up to 5. In total, these each represent a possbile state for the player. Finally, the last layer has an integer for number of hits and an integer for the number of stands for each state.
+![Data Table of Results](img_m3/data_table.png)
 
-For each row, we figure out how many aces the player received. We then sum up the player's total hand value, treating as many aces as 11 as we can without going over 21 total value. We then iterate through the player's third, fourth, and fifth card, tracking the state of the player's hand before receiving each card. If the player receives a card, we increment the number of hits we saw in the state by 1. If the player does not receive a card, we increment the number of stands we saw by 1 and move on to the next row.
+To begin, we compared the data of the three Markov agents with the following graph of their expected returns:
 
-Then, our dictionary is written row-by-row in `dealer_seen,player_value,num_aces,num_hits,num_stands` CSV format in [blkjck_clean.csv](blkjck_clean.csv).
+![Graph of Markov Returns](img_m3/markov_comp.png)
 
-### Agent Setup and Modeling
+We can see that the agent with the best return is Markov agent 2. This means that keeping track of the cards that have been used during the current round gives us a slight advantage, but having a more precise DP did not seem to make a different (or perhaps makes the agent perform worse).
 
-Our agent is a goal-based agent, particularly using its current expectations of the dealer’s hand to figure out how to win each round of blackjack. In particular, we processed our dataset of blackjack games to organize the number of times players hit versus stand given both their hands and the dealer’s visible card. Then, using the sequence of choices to hit or stand by the bots in the round given their hands as evidence, we then can calculate the probability we see that evidence for each possible dealer card to guess what the dealer’s visible card is. 
-![Bayesian Network with Dealer and Bots](img/bayes_net_evidence.png)
+Notably, as the bots increase, not keeping track of which cards have been used hinders the performance of Markov agent 1 compared to agent 2 because more bots means more cards have been seen so we can get a stronger estimate of what the remaining cards in the deck are.
 
-We are calculating `P(Dealer_Card=card|evidence)` for each possible `card`, and where `evidence` is the collection of choices the bots made given their state (hand and number of aces). Since we also know the state of each bot's hand as they make their decisions, those states are also in our evidence.
+Then, we compared the results from the bot player, the Bayesian agent from Milestone 2, and our new Markov agent with the following graph:
 
-### Implementation
+![Graph of Markov and Bayes](img_m3/markov_vs_bayes.png)
 
-To explore how we benchmarked our agents, click on [this link](CSE_150A_Play_Blackjack.ipynb).
+As we can see in the graph, the Markov agent outperforms both the bot player and the Bayesian by about one cent on the dollar. We were hoping to see a greater increase in expected return, but nonetheless, this is an improvement. In the improvements section, we will talk about how we could make this even better.
 
-To explore how we implemented our agents, click on [this link](bayesian_agent/bayesian.py).
+Another test we ran was a comparison between our believed deck and the actual deck as rounds passed with one bot player. We calculated the mean-squared error between the distribution our agent thought the deck had versus the true distribution with this function:
 
-Specifically, we wrote two agents. They both use the same bayesian method to calculate the probability of each possbile visible dealer card. The first agent, agent1, assumes that the most likely card we calculated is the dealer's card and makes it decision based off of that. The second agent, agent2, weighs the expected return for each choice across the probability the dealer has each card. Effectively, it makes the choice with the highest expected return over all dealer cards.
+```python
+def squared_error(belief, actual):
+    return sum([(belief[i] - actual[i]) ** 2 for i in range(2, 12)])
+```
 
-To make the choice, we use a simplified calculation that calculates the probability that the dealer will end with a certain hand value given they start with a certain card. Then, we use dynamic programming principles to calculate the approximate expected value of hitting and standing in each state to find the best choice in our current state. 
+Then, we graphed our data:
 
-To explore how we ran the blackjack game, click on [this link](blackjack/blackjack.py).
+![Graph of Deck Comparison](img_m3/belief_vs_true.png)
 
-### Conclusion
-
-When benchmarking our two agents, we kept track of the expected return from a single dollar wager for a game of blackjack. We also kept track of the mean squared error between what the agent things the dealer has versus what the dealer actually has. We ran tests with different numbers of bots to see how the agent improves as it gets more data, as well as to compare the agent's performance versus that of the average human. 
-
-We can 100,000 games using a standard deck of cards for both agents, then 100,000 games with a completely randomized deck of cards for both agents. The data is pictured below.
-
-![Data Table](img/conclusion_table.png)
-
-It appears that when we have enough bots running alongside our agent, we are able to beat the performance of the bots. Additionally, having more information from the bots lowers our mean squared error. On average, we are still expected to loose about five cents from the dollar, which is expected since the player loses in blackjack, and we are not allowing splitting and other rules that help give the player a slight edge.
-
-![Graphs](img/conclusion_graphs.png)
-
-It appears that agent 2 has a slightly better expected return than agent 1, which makes sense because it has a more holistic approach that considers all possibilities while still giving more weight to liklier worlds. Both agents have the same mean squared error because they both use the same underlying method to calculate dealer card probabilities.
-
-The agent performs slightly worse with the randomized deck which makes sense because in its current state, it makes the assumption that the deck is a standard deck of cards. 
+The y-axis is the mean-squared error, while the x-axis is the number of rounds that we have played. As can be seen with the graph, as more and more rounds pass, our agent's belief becomes more accurate. This is expected and is the reason why we chose to design an agent using this model, and it is good to verify that this model works in practice.
 
 ### Improvements
 
-Particularly in the case of the randomized deck, one way we could improve our agent is by designing a Hidden Markov Model to represent the deck, so that as the rounds pass, we can develop a better picture of which cards are in the deck. This will help the agent to make more educated decisions and win more often.
+As with the previous Milestone, one point we could improve on is giving our agent the option to double down, split, and surrender. We would have liked to implement this, but because we only have one more milestone, we decided to focus more on developing the aspects of the model most relevant to the topics from this class, since adding these options are more tangential. 
 
-We could also implement extra blackjack rules such as doubling down, splitting, and surrendering  which help make the game more fair.
+Additionally, we also would have liked to made a better algorithm for calculating the expected value of standing versus hitting. In its current state, as we make our calculations, we assume all the probabilities are with replacement, which is not accurate to how the game plays out. In a typical blackjack setting, you would calculate all possible draws because the deck is static. However, because that is not the case in our scenario (our belief of the deck changes with every hand), this would be very costly in computing power. 
+
+In terms of 

@@ -111,7 +111,6 @@ def markovian_agent3(args, value, num_aces):
         markov.has_updated = True
 
     expected_cards = {key: value * 52 / sum(markov.belief.values()) for key, value in markov.belief.items()}
-    cards_left = 50
     expected_cards[card1] = max(expected_cards[card1]-1, 0)
     expected_cards[card2] = max(expected_cards[card2]-1, 0)
     for p in choice_list:
@@ -119,13 +118,9 @@ def markovian_agent3(args, value, num_aces):
         if p[2] != 1:
             for card in p[3]:
                 expected_cards[card] = max(expected_cards[card]-1, 0)
-                cards_left -= 1
     
     prob_dict = {key: value / sum(expected_cards.values()) for key, value in expected_cards.items()}
     dealer_probabilities = calculate_dealer_probabilities(choice_list, player_choices, prob_dict)
-
-    # if (markov.true_card != -1):
-    #     dealer_probabilities = {markov.true_card: 1.0}
 
     ret = calculate_move_dp2(dealer_probabilities, prob_dict, value, num_aces)
     markov.guess = max(dealer_probabilities, key=dealer_probabilities.get)
@@ -157,12 +152,8 @@ def calculate_dealer_probabilities(choice_list, player_choices, prob_dict):
                 continue
             choice_prob = player_choices[dcard][choice[0]][choice[1]]
             if choice[2] == 0:
-                #if (1 - choice_prob) == 0:
-                    #print("ZERO STAND", dcard, choice[0], choice[1])
                 prob_step *= (1 - choice_prob)
             elif choice[2] == 1:
-                #if choice_prob == 0:
-                    #print("ZERO HIT", dcard, choice[0], choice[1])
                 prob_step *= choice_prob
 
         return_dict[dcard] = prob_step
