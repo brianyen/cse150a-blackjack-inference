@@ -46,8 +46,6 @@ def bot_choice(args, value, num_aces):
 def dealer_choice(args, value, num_aces):
   if value < 17:
     return 1
-  # elif value == 17 and num_aces > 0:
-  #   return 1
   else:
     return 0
 
@@ -107,7 +105,6 @@ def play_blackjack(agent, player_choices, num_other_players):
     deck = static_deck.copy()
     random.shuffle(deck)
     dealer_card = deck.pop(0)
-    # print("dealer card:", dealer_card)
     choice_list = []
     # choice_list[i] = (value, aces, outcome, cardlist), outcome maps with {0: stand, 1: hit, 2: bust}
     end_of_round_values = []
@@ -152,7 +149,6 @@ def play_blackjack(agent, player_choices, num_other_players):
     else:
       num_losses += 1
 
-  # print(num_wins, num_ties, num_losses)
   return num_wins, num_ties, num_losses, num_bot_wins, num_bot_ties, num_bot_losses
 
 def squared_error(belief, actual):
@@ -185,7 +181,6 @@ def play_blackjack_time_series(agent, player_choices, num_other_players, bucket_
     deck = static_deck.copy()
     random.shuffle(deck)
     dealer_card = deck.pop(0)
-    # print("dealer card:", dealer_card)
     choice_list = []
     # choice_list[i] = (value, aces, outcome, cardlist), outcome maps with {0: stand, 1: hit, 2: bust}
     end_of_round_values = []

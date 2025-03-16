@@ -92,6 +92,7 @@ def read_data(filename):
 
     with open(filename, 'r') as f:
     i = 0
+    # When passing in the clean data file, each row represents a possible state in terms of dealer card and player hand
     for row in f:
         i += 1
         if i == 1:
@@ -102,9 +103,10 @@ def read_data(filename):
         stands = int(items[4])
 
         if hits == 0 and stands == 0:
-            # never seen in actual gameplay
+            # We have never seen this state in our dataset, so we default to a 50/50 chance
             data[int(items[0])][int(items[1])][int(items[2])] = 0.5
         else:
+            # Take the empirical chance of hitting with this state
             data[int(items[0])][int(items[1])][int(items[2])] = hits / (hits + stands)
 
     return data
@@ -123,9 +125,10 @@ In order to calculate our believed distribution for the deck, we have the follow
 ```python
 def parse_player_choices(choice_list):
     for p in choice_list:
-        # not a hit, so we can add the cards to the pile
+        # We check that this particular choice doesn't represent a hit to avoid duplicates
         if p[2] != 1:
             for card in p[3]:
+                # Increment total counts for each card seen
                 markov.belief[card] += 1
 ```
 
@@ -134,6 +137,7 @@ We use this function to process all the choices made thus far in the current rou
 After we are done parsing player choices, we build a new 52-card deck using the distribution found from the total counts, which is what we expect the deck to currently be. From our expected deck, we remove all the cards we have seen thus far in the current round, which gives us our expectation of the counts of cards are left in the deck. Using these counts, we can calculate a new distribution of the deck in the current state of the game.
 
 ```python
+# Initialize dummy data on first pass
 if markov.belief is None:
     markov.belief = {2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3, 9: 3, 10: 12, 11: 3}
 
@@ -141,17 +145,21 @@ player_choices = args[0]
 choice_list = args[1]
 card1, card2 = args[2]
 
+# On the first iteration of a given round, update our total counts to update our belief
 if not markov.has_updated:
     parse_player_choices(choice_list)
     markov.belief[card1] += 1
     markov.belief[card2] += 1
     markov.has_updated = True
 
+# Construct a "current" 52 card deck matching our current belief
 expected_cards = {key: value * 52 / sum(markov.belief.values()) for key, value in markov.belief.items()}
+
+# Remove cards that have already appeared in play this round from constructed deck
 expected_cards[card1] = max(expected_cards[card1]-1, 0)
 expected_cards[card2] = max(expected_cards[card2]-1, 0)
 for p in choice_list:
-    # not a hit
+    # We check that this particular choice isn't a hit to avoid duplicates
     if p[2] != 1:
         for card in p[3]:
             expected_cards[card] = max(expected_cards[card]-1, 0)
@@ -201,5 +209,3 @@ The y-axis is the mean-squared error, while the x-axis is the number of rounds t
 As with the previous Milestone, one point we could improve on is giving our agent the option to double down, split, and surrender. We would have liked to implement this, but because we only have one more milestone, we decided to focus more on developing the aspects of the model most relevant to the topics from this class, since adding these options are more tangential. 
 
 Additionally, we also would have liked to made a better algorithm for calculating the expected value of standing versus hitting. In its current state, as we make our calculations, we assume all the probabilities are with replacement, which is not accurate to how the game plays out. In a typical blackjack setting, you would calculate all possible draws because the deck is static. However, because that is not the case in our scenario (our belief of the deck changes with every hand), this would be very costly in computing power. 
-
-In terms of 

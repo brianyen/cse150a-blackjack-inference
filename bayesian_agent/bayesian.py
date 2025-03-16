@@ -80,12 +80,8 @@ def calculate_dealer_probabilities(choice_list, player_choices):
                 continue
             choice_prob = player_choices[dcard][choice[0]][choice[1]]
             if choice[2] == 0:
-                #if (1 - choice_prob) == 0:
-                    #print("ZERO STAND", dcard, choice[0], choice[1])
                 prob_step *= (1 - choice_prob)
             elif choice[2] == 1:
-                #if choice_prob == 0:
-                    #print("ZERO HIT", dcard, choice[0], choice[1])
                 prob_step *= choice_prob
 
         return_dict[dcard] = prob_step

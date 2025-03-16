@@ -287,9 +287,6 @@ def calculate_move_dp2(dealer_probs, prob_dict, value, num_aces):
                         nx = dp[(card+key, num_aces, aces_used)]
                         dp[(card, num_aces, aces_used)][1] += max(nx[0], nx[1]) * val
 
-    # print(prob_dict)
-    # print(prob_dealer_ends_with)
-    # print(dp)
     return dp[(value, num_aces, 0)]
 
 def parse_player_choices(choice_list):
