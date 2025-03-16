@@ -172,10 +172,10 @@ def play_blackjack_time_series(agent, player_choices, num_other_players, bucket_
   # static_deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
 
   # uncomment to test with extremely stacked deck
-  # static_deck = [5, 6, 7, 8, 10, 10, 10, 10, 10, 10, 10, 10, 10] * 4
+  static_deck = [5, 6, 7, 8, 10, 10, 10, 10, 10, 10, 10, 10, 10] * 4
 
   # card counting deck
-  static_deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 11] * 4
+  # static_deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 11] * 4
 
   bot_record = []
   agent_record = []
